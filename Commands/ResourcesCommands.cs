@@ -69,7 +69,7 @@ namespace blankyBot.Commands
                     }
                 }
                 string resultCmd = "";
-                foreach (var item in listParams)
+                foreach (string item in listParams)
                 {
                     resultCmd += $"{item}";
                 }
@@ -135,7 +135,7 @@ namespace blankyBot.Commands
         public async Task<Embed> Leave(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            var voiceChannel = (user as IVoiceState).VoiceChannel;
+            IVoiceChannel voiceChannel = ((IVoiceState)user).VoiceChannel;
             if (voiceChannel == null)
             {
                 return embed.WithDescription("Error : Not sure which voice channel to disconnect from.")
@@ -172,7 +172,7 @@ namespace blankyBot.Commands
             LavaPlayer<LavaTrack>? player = await lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
-                var voiceState = user as IVoiceState;
+                IVoiceState? voiceState = user as IVoiceState;
                 if (voiceState?.VoiceChannel == null)
                 {
                     return embed.WithDescription($"Error : You must be connected to a voice channel!")
@@ -215,7 +215,7 @@ namespace blankyBot.Commands
         public async Task<Embed> Pause(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            var player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -251,7 +251,7 @@ namespace blankyBot.Commands
         public async Task<Embed> Resume(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            var player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -345,7 +345,7 @@ namespace blankyBot.Commands
                 string skippedTrack = player.Track.Title;
                 if (player.Queue.Count > 0 && player.Queue.First() is not null)
                 {
-                    var embedResult = embed.WithDescription(description: $"Skipped: {skippedTrack}\nNow Playing: {player.Queue.First().Title}")
+                    Embed embedResult = embed.WithDescription(description: $"Skipped: {skippedTrack}\nNow Playing: {player.Queue.First().Title}")
                         .WithColor(Color.Purple)
                         .WithAuthor(user)
                         .WithTitle("Song skipped!")
