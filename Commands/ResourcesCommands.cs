@@ -211,11 +211,12 @@ namespace blankyBot.Commands
                     .Build();
             }
             await player.PlayAsync(lavaNode: _lavaNode, lavaTrack: track);
+            string artwork = track.Artwork;
             return embed.WithDescription($"{user.Username} enqueued :\n[{track?.Title}]({track?.Url})")
                     .WithColor(Color.Purple)
                     .WithAuthor(user: user)
                     .WithTitle("Music Added!")
-                    .WithImageUrl(imageUrl: track.Artwork)
+                    .WithImageUrl(imageUrl: artwork)
                     .Build(); ;
         }
         public async Task<Embed> Pause(ulong guildId, SocketUser user)

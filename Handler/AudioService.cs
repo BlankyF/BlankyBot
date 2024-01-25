@@ -60,7 +60,7 @@ namespace blankyBot.Handler
         }
         private Task OnWebSocketClosedAsync(WebSocketClosedEventArg arg)
         {
-            _logger.LogCritical($"{arg.Code} {arg.Reason}");
+            _logger.LogCritical($"Log {arg.Code} {arg.Reason}");
             return Task.CompletedTask;
         }
     }

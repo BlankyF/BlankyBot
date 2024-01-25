@@ -11,22 +11,9 @@ using static blankyBot.PublicFunction;
 
 namespace blankyBot.Commands
 {
-    public class TextCommands : ModuleBase<SocketCommandContext>
+    public class TextCommands(ResourcesCommands resourcesCommands) : ModuleBase<SocketCommandContext>
     {
-        private readonly LavaNode<LavaPlayer<LavaTrack>, LavaTrack> _lavaNode;
-        private readonly DiscordSocketClient _client;
-        private readonly ResourcesCommands ressources;
-
-        public TextCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode, DiscordSocketClient client)
-        {
-            _lavaNode = lavaNode;
-            _client = client;
-            ressources = new ResourcesCommands(_lavaNode);
-        }
-
-
-        [Command("costro")]
-        public async Task Costro() => await ReplyAsync("Costro is a hella cute stag. <3 <3 <3 <3 <3");
+        private readonly ResourcesCommands ressources = resourcesCommands;
 
         [Command("femboy")]
         public async Task FemboyCommand() => await Context.Channel.SendMessageAsync(embed: ResourcesCommands.RandomCommand(Context.User, "femboy", 0));

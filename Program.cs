@@ -36,7 +36,7 @@ namespace blankyBot
         private CommandService? _commands;
         private IServiceProvider? _services;
         private LavaNode<LavaPlayer<LavaTrack>, LavaTrack>? node;
-        public Dictionary<ulong, ulong> serverTextChannelList = [];
+        private ResourcesCommands? resourcesCommands;
 
         public async Task RunBotAsync()
         {
@@ -83,6 +83,7 @@ namespace blankyBot
                 Console.WriteLine("Major error, the client are empty");
                 return;
             }
+            resourcesCommands = new ResourcesCommands(node);
             await _services.UseLavaNodeAsync();
             await client.SetStatusAsync(UserStatus.Online);
             await client.SetGameAsync("Blanky Bot 1.0");
@@ -177,12 +178,12 @@ namespace blankyBot
 
         private async Task SlashCommandHandler(SocketSlashCommand command)
         {
-            if (node is null || client is null)
+            if (node is null || client is null || resourcesCommands is null)
             {
-                Console.WriteLine("Major error: the node or client are empty.");
+                Console.WriteLine("Major error: the node or client or resourcesCommands are empty.");
                 return;
             }
-            SlashCommands slashCommands = new (node);
+            SlashCommands slashCommands = new (resourcesCommands);
             switch (command.Data.Name)
             {
                 case "help":
