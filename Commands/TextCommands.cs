@@ -21,7 +21,7 @@ namespace blankyBot.Commands
         {
             _lavaNode = lavaNode;
             _client = client;
-            ressources = new ResourcesCommands(_lavaNode, _client);
+            ressources = new ResourcesCommands(_lavaNode);
         }
 
 

@@ -8,19 +8,9 @@ using Victoria;
 
 namespace blankyBot.Commands
 {
-    public class SlashCommands
+    public class SlashCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode)
     {
-
-        private readonly LavaNode<LavaPlayer<LavaTrack>, LavaTrack> _lavaNode;
-        private readonly DiscordSocketClient _client;
-        private readonly ResourcesCommands ressources;
-
-        public SlashCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode, DiscordSocketClient client)
-        {
-            _lavaNode = lavaNode;
-            _client = client;
-            ressources = new ResourcesCommands(_lavaNode, _client);
-        }
+        private readonly ResourcesCommands ressources = new (lavaNode);
         public async Task HelpCommand(SocketSlashCommand command)
         {
             await command.RespondAsync(embed: ressources.embedHelp.Build());

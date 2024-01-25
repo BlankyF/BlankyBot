@@ -182,7 +182,7 @@ namespace blankyBot
                 Console.WriteLine("Major error: the node or client are empty.");
                 return;
             }
-            SlashCommands slashCommands = new (node,client);
+            SlashCommands slashCommands = new (node);
             switch (command.Data.Name)
             {
                 case "help":

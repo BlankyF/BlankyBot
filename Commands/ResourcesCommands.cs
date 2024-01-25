@@ -13,12 +13,12 @@ using Victoria;
 using Victoria.Rest.Search;
 using blankyBot;
 using static blankyBot.PublicFunction;
+using static System.Net.WebRequestMethods;
 
 namespace blankyBot.Commands
 {
-    public class ResourcesCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode, DiscordSocketClient client)
+    public class ResourcesCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode)
     {
-        private readonly DiscordSocketClient _client = client;
         private readonly LavaNode<LavaPlayer<LavaTrack>, LavaTrack> _lavaNode = lavaNode;
         public readonly EmbedBuilder embedHelp = new EmbedBuilder()
             .WithTitle("Commands list:")
@@ -117,7 +117,7 @@ namespace blankyBot.Commands
             }
             try
             {
-                await lavaNode.JoinAsync(voiceState.VoiceChannel, channel as ITextChannel);
+                await _lavaNode.JoinAsync(voiceState.VoiceChannel, channel as ITextChannel);
                 return embed.WithDescription($"Joined the channel : {voiceState.VoiceChannel.Name}!")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -126,7 +126,7 @@ namespace blankyBot.Commands
             }
             catch (Exception exception)
             {
-                return embed.WithDescription($"Error : {exception.ToString()}!")
+                return embed.WithDescription($"Error : {exception}!")
                     .WithColor(Color.Red)
                     .Build();
             }
@@ -145,7 +145,7 @@ namespace blankyBot.Commands
 
             try
             {
-                await lavaNode.LeaveAsync(voiceChannel);
+                await _lavaNode.LeaveAsync(voiceChannel);
                 return embed.WithDescription($"I've left the channel \"{voiceChannel.Name}\"!")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -154,7 +154,7 @@ namespace blankyBot.Commands
             }
             catch (Exception exception)
             {
-                return embed.WithDescription($"Error : {exception.ToString()}!")
+                return embed.WithDescription($"Error : {exception}!")
                     .WithColor(Color.Red)
                     .Build();
             }
@@ -169,7 +169,7 @@ namespace blankyBot.Commands
                     .Build();
             }
 
-            LavaPlayer<LavaTrack>? player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack>? player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 IVoiceState? voiceState = user as IVoiceState;
@@ -182,7 +182,7 @@ namespace blankyBot.Commands
 
                 try
                 {
-                    player = await lavaNode.JoinAsync(voiceState.VoiceChannel, channel as ITextChannel);
+                    player = await _lavaNode.JoinAsync(voiceState.VoiceChannel, channel as ITextChannel);
                     await channel.SendMessageAsync(embed: embed.WithDescription($"Joined {voiceState.VoiceChannel.Name}!")
                         .WithColor(Color.Purple)
                         .Build());
@@ -195,7 +195,7 @@ namespace blankyBot.Commands
                 }
             }
 
-            SearchResponse searchResponse = await lavaNode.LoadTrackAsync(searchQuery);
+            SearchResponse searchResponse = await _lavaNode.LoadTrackAsync(searchQuery);
             if (searchResponse.Type is SearchType.Empty or SearchType.Error)
             {
                 return embed.WithDescription($"Error : I wasn't able to find anything for `{searchQuery}`.")
@@ -204,18 +204,24 @@ namespace blankyBot.Commands
             }
 
             LavaTrack? track = searchResponse.Tracks.FirstOrDefault();
-            await player.PlayAsync(lavaNode, track);
+            if (track is null)
+            {
+                return embed.WithDescription($"Error : track is null.")
+                    .WithColor(Color.Red)
+                    .Build();
+            }
+            await player.PlayAsync(lavaNode: _lavaNode, lavaTrack: track);
             return embed.WithDescription($"{user.Username} enqueued :\n[{track?.Title}]({track?.Url})")
                     .WithColor(Color.Purple)
-                    .WithAuthor(user)
+                    .WithAuthor(user: user)
                     .WithTitle("Music Added!")
-                    .WithImageUrl(track.Artwork)
+                    .WithImageUrl(imageUrl: track.Artwork)
                     .Build(); ;
         }
         public async Task<Embed> Pause(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -234,7 +240,7 @@ namespace blankyBot.Commands
 
             try
             {
-                await player.PauseAsync(lavaNode);
+                await player.PauseAsync(_lavaNode);
                 return embed.WithDescription($"Paused: {player.Track.Title}")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -251,7 +257,7 @@ namespace blankyBot.Commands
         public async Task<Embed> Resume(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -270,7 +276,7 @@ namespace blankyBot.Commands
 
             try
             {
-                await player.ResumeAsync(lavaNode);
+                await player.ResumeAsync(_lavaNode);
                 return embed.WithDescription($"Resume: {player.Track.Title}")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -287,7 +293,7 @@ namespace blankyBot.Commands
         public async Task<Embed> Stop(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -306,7 +312,7 @@ namespace blankyBot.Commands
 
             try
             {
-                await player.StopAsync(lavaNode);
+                await player.StopAsync(_lavaNode);
                 return embed.WithDescription($"Paused: {player.Track.Title}")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -324,7 +330,7 @@ namespace blankyBot.Commands
         {
             EmbedBuilder embed = new();
 
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -350,12 +356,12 @@ namespace blankyBot.Commands
                         .WithAuthor(user)
                         .WithTitle("Song skipped!")
                         .Build();
-                    await player.SeekAsync(lavaNode, player.Track.Duration);
+                    await player.SeekAsync(_lavaNode, player.Track.Duration);
                     return embedResult;
                 } 
                 else
                 {
-                    await player.StopAsync(lavaNode);
+                    await player.StopAsync(_lavaNode);
                     return embed.WithDescription($"Skipped: {skippedTrack}")
                         .WithColor(Color.Purple)
                         .WithAuthor(user)
@@ -373,7 +379,7 @@ namespace blankyBot.Commands
         public async Task<Embed> NowPlaying(ulong guildId, SocketUser user)
         {
             EmbedBuilder embed = new();
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -403,7 +409,7 @@ namespace blankyBot.Commands
         {
             EmbedBuilder embed = new();
 
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
@@ -442,7 +448,7 @@ namespace blankyBot.Commands
         public async Task<Embed> Queue(ulong guildId, SocketUser user, int pageNumber)
         {
             EmbedBuilder embed = new();
-            LavaPlayer<LavaTrack> player = await lavaNode.TryGetPlayerAsync(guildId);
+            LavaPlayer<LavaTrack> player = await _lavaNode.TryGetPlayerAsync(guildId);
             if (player == null)
             {
                 return embed.WithDescription("Error : I'm not connected to a voice channel.")
