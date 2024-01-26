@@ -17,6 +17,8 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection.Metadata;
 using Victoria.WebSocket.EventArgs;
+using Microsoft.Extensions.Logging;
+using System.Xml.Linq;
 
 namespace blankyBot
 {
@@ -35,8 +37,10 @@ namespace blankyBot
         private DiscordSocketClient? client;
         private CommandService? _commands;
         private IServiceProvider? _services;
-        private LavaNode<LavaPlayer<LavaTrack>, LavaTrack>? node;
+        private LavaNode<LavaPlayer<LavaTrack>, LavaTrack>? _lavaNode;
         private ResourcesCommands? resourcesCommands;
+        public ILogger<LavaNode<LavaPlayer<LavaTrack>, LavaTrack>>? logger;
+        public LavaQueue<LavaTrack> queue = new();
 
         public async Task RunBotAsync()
         {
@@ -58,7 +62,7 @@ namespace blankyBot
 
             // Start Discord bot
             // Let's hook the ready event for creating our commands in.
-            client.Ready += SlashCommandDictionary;
+            client.Ready += OnReady;
             // Command init
             RegisterCommandsAsync();
 
@@ -70,28 +74,28 @@ namespace blankyBot
             await client.StartAsync();
             await Task.Delay(-1);
         }
-        public async Task SlashCommandDictionary()
+        public async Task OnReady()
         {
             if (_services is null )
             {
-                Console.WriteLine("Major error, the serviceare empty");
+                Console.WriteLine("Major error, the service are empty");
                 return;
             }
-            node = _services.GetRequiredService<LavaNode<LavaPlayer<LavaTrack>, LavaTrack>>();
-            if (client is null || node is null || _commands is null)
+            await _services.UseLavaNodeAsync();
+            _lavaNode = _services.GetRequiredService<LavaNode<LavaPlayer<LavaTrack>, LavaTrack>>();
+            if (client is null || _lavaNode is null || _commands is null)
             {
                 Console.WriteLine("Major error, the client are empty");
                 return;
             }
-            resourcesCommands = new ResourcesCommands(node);
-            await _services.UseLavaNodeAsync();
+            resourcesCommands = new ResourcesCommands(_lavaNode, queue);
             await client.SetStatusAsync(UserStatus.Online);
             await client.SetGameAsync("Blanky Bot 1.0");
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
-            if (!node.IsConnected)
+            if (!_lavaNode.IsConnected)
             {
-                await node.ConnectAsync();
-                Console.WriteLine($"Node connection : {node.IsConnected}");
+                await _lavaNode.ConnectAsync();
+                Console.WriteLine($"Node connection : {_lavaNode.IsConnected}");
             }
             SlashCommandBuilder helpCommand = new SlashCommandBuilder()
                 .WithName("help")
@@ -178,7 +182,7 @@ namespace blankyBot
 
         private async Task SlashCommandHandler(SocketSlashCommand command)
         {
-            if (node is null || client is null || resourcesCommands is null)
+            if (_lavaNode is null || client is null || resourcesCommands is null)
             {
                 Console.WriteLine("Major error: the node or client or resourcesCommands are empty.");
                 return;
@@ -248,7 +252,7 @@ namespace blankyBot
         // Command init
         public void RegisterCommandsAsync()
         {
-            if (client is null || _commands is null || _services is null)
+            if (client is null || _commands is null || _services is null || _lavaNode is null)
             {
                 Console.WriteLine("Major error, the bot will not load due to a null client, command or services");
                 return;
@@ -265,8 +269,44 @@ namespace blankyBot
             client.MessageReceived += messageHandler.HandleCommandAsync;
             client.MessageDeleted += deleteHandler.HandleDeleteAsync;
             client.MessageUpdated += editedHandler.HandleEditAsync;
+            _lavaNode.OnTrackEnd += Autoplay;
             FireGator.Start();
             FireGator.OnThursday += firegatorHandler.HandleFiregatorAsync;
+        }
+
+        private async Task Autoplay(TrackEndEventArg endTrackArg)
+        {
+            if (client is null || _commands is null || _services is null || _lavaNode is null)
+            {
+                Console.WriteLine("Major error, the bot will not load due to a null client, command or services");
+                return;
+            }
+            if (_lavaNode == null) { return; }
+            ITextChannel textChannel = (ITextChannel)client.GetChannel(1199393888989892729);
+            LavaPlayer<LavaTrack> player = await _lavaNode.GetPlayerAsync(endTrackArg.GuildId);
+            if (queue.Count > 0)
+            {
+                // queues up the next track by skipping if the queue isn't empty
+                await textChannel.SendMessageAsync(embed: new EmbedBuilder()
+                    .WithTitle($"Finished playing {player.Track}.")
+                    .WithColor(Color.Purple)
+                    .Build());
+                await textChannel.SendMessageAsync(embed: new EmbedBuilder()
+                    .WithTitle($"Now playing {player.Queue.First().Title}.")
+                    .WithColor(Color.Purple)
+                    .Build());
+                await player.PlayAsync(lavaNode: _lavaNode, lavaTrack: queue.First());
+                queue.RemoveAt(0);
+            }
+            else
+            {
+                // if playlist empty
+                await textChannel.SendMessageAsync(embed: new EmbedBuilder()
+                    .WithTitle($"Finished playing {player.Track}.")
+                    .WithDescription($"This was the last track of the playlist.\nUse {PublicFunction.prefix}play or the slash command /play to queue up more songs!")
+                    .WithColor(Color.Purple)
+                    .Build());
+            }
         }
     }
 }

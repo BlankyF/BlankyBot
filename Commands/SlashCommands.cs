@@ -73,14 +73,14 @@ namespace blankyBot.Commands
         {
             Embed embed;
             if (command.GuildId is null) return;
-            embed = await ressources.Join((ulong)command.GuildId, command.User, command.Channel);
+            embed = await ressources.Join(command.User, command.Channel);
             await command.RespondAsync(embed: embed);
         }
         public async Task LeaveCommand(SocketSlashCommand command)
         {
             Embed embed;
             if (command.GuildId is null) return;
-            embed = await ressources.Leave((ulong)command.GuildId, command.User);
+            embed = await ressources.Leave(command.User);
             await command.RespondAsync(embed: embed);
         }
         public async Task PlayCommand(SocketSlashCommand command)

@@ -17,9 +17,10 @@ using static System.Net.WebRequestMethods;
 
 namespace blankyBot.Commands
 {
-    public class ResourcesCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode)
+    public class ResourcesCommands(LavaNode<LavaPlayer<LavaTrack>, LavaTrack> lavaNode, LavaQueue<LavaTrack> queue)
     {
         private readonly LavaNode<LavaPlayer<LavaTrack>, LavaTrack> _lavaNode = lavaNode;
+        private readonly LavaQueue<LavaTrack> _queue = queue;
         public readonly EmbedBuilder embedHelp = new EmbedBuilder()
             .WithTitle("Commands list:")
             .AddField($"{prefix}femboy", "Display the seeded femboy percentage rating of the a user. Can accept one paramater.")
@@ -105,7 +106,7 @@ namespace blankyBot.Commands
 
         // MUSIC BOT RESSOURCES
 
-        public async Task<Embed> Join(ulong guildId, SocketUser user, ISocketMessageChannel channel)
+        public async Task<Embed> Join(SocketUser user, ISocketMessageChannel channel)
         {
             EmbedBuilder embed = new();
             IVoiceState? voiceState = user as IVoiceState;
@@ -132,7 +133,7 @@ namespace blankyBot.Commands
             }
 
         }
-        public async Task<Embed> Leave(ulong guildId, SocketUser user)
+        public async Task<Embed> Leave(SocketUser user)
         {
             EmbedBuilder embed = new();
             IVoiceChannel voiceChannel = ((IVoiceState)user).VoiceChannel;
@@ -196,28 +197,81 @@ namespace blankyBot.Commands
             }
 
             SearchResponse searchResponse = await _lavaNode.LoadTrackAsync(searchQuery);
-            if (searchResponse.Type is SearchType.Empty or SearchType.Error)
+            if (searchResponse.Type is SearchType.Empty or SearchType.Error || searchResponse.Tracks.FirstOrDefault() is null || searchResponse.Type is SearchType.Playlist && searchResponse.Tracks.Count == 0)
             {
                 return embed.WithDescription($"Error : I wasn't able to find anything for `{searchQuery}`.")
                     .WithColor(Color.Red)
                     .Build();
             }
 
-            LavaTrack? track = searchResponse.Tracks.FirstOrDefault();
-            if (track is null)
+            if (searchResponse.Type is SearchType.Playlist)
             {
-                return embed.WithDescription($"Error : track is null.")
-                    .WithColor(Color.Red)
-                    .Build();
+                IReadOnlyCollection<LavaTrack> newTracks = searchResponse.Tracks;
+                if (isShuffle)
+                    newTracks = newTracks.OrderBy(x => Random.Shared.Next()).ToList();
+                // PlayList
+                foreach (LavaTrack? newTrack in newTracks)
+                {
+                    if (newTrack is null)
+                        continue;
+
+                    string singleArtwork = newTrack.Artwork;
+                    // either add it to queue or player it if nothing is playing 
+                    if (player.Track is null)
+                    {
+                        //play it
+                        await player.PlayAsync(lavaNode: _lavaNode, lavaTrack: newTrack);
+                    }
+                    else
+                    {
+                        // enqueue it
+                        _queue.Enqueue(newTrack);
+                    }
+                }
+                string artwork = searchResponse.Tracks.First().Artwork;
+                return embed.WithDescription($"{user.Username} enqueued the playlist :\n[{searchResponse.Playlist.Name}]({searchQuery})")
+                        .WithColor(Color.Purple)
+                        .WithAuthor(user: user)
+                        .WithTitle("Playlist Added!")
+                        .WithImageUrl(imageUrl: artwork)
+                        .Build();
+            } else
+            {
+                //Single Track
+                LavaTrack? newTrack = searchResponse.Tracks.FirstOrDefault();
+                if (newTrack is null)
+                {
+                    return embed.WithDescription($"Error : track is null.")
+                        .WithColor(Color.Red)
+                        .Build();
+                }
+
+                // either add it to queue or player it if nothing is playing 
+                if (player.Track is null)
+                {
+                    //play it
+                    await player.PlayAsync(lavaNode: _lavaNode, lavaTrack: newTrack);
+                    string artwork = newTrack.Artwork;
+                    return embed.WithDescription($"{user.Username} plays :\n[{newTrack?.Title}]({newTrack?.Url})")
+                            .WithColor(Color.Purple)
+                            .WithAuthor(user: user)
+                            .WithTitle("Music Added!")
+                            .WithImageUrl(imageUrl: artwork)
+                            .Build();
+                }
+                else
+                {
+                    // enqueue it
+                    _queue.Enqueue(newTrack);
+                    string artwork = newTrack.Artwork;
+                    return embed.WithDescription($"{user.Username} enqueued :\n[{newTrack?.Title}]({newTrack?.Url})")
+                            .WithColor(Color.Purple)
+                            .WithAuthor(user: user)
+                            .WithTitle("Music Added!")
+                            .WithImageUrl(imageUrl: artwork)
+                            .Build();
+                }
             }
-            await player.PlayAsync(lavaNode: _lavaNode, lavaTrack: track);
-            string artwork = track.Artwork;
-            return embed.WithDescription($"{user.Username} enqueued :\n[{track?.Title}]({track?.Url})")
-                    .WithColor(Color.Purple)
-                    .WithAuthor(user: user)
-                    .WithTitle("Music Added!")
-                    .WithImageUrl(imageUrl: artwork)
-                    .Build(); ;
         }
         public async Task<Embed> Pause(ulong guildId, SocketUser user)
         {
@@ -350,9 +404,9 @@ namespace blankyBot.Commands
             try
             {
                 string skippedTrack = player.Track.Title;
-                if (player.Queue.Count > 0 && player.Queue.First() is not null)
+                if (_queue.Count > 0 && _queue.First() is not null)
                 {
-                    Embed embedResult = embed.WithDescription(description: $"Skipped: {skippedTrack}\nNow Playing: {player.Queue.First().Title}")
+                    Embed embedResult = embed.WithDescription(description: $"Skipped: {skippedTrack}\nNow Playing: {_queue.First().Title}")
                         .WithColor(Color.Purple)
                         .WithAuthor(user)
                         .WithTitle("Song skipped!")
@@ -389,7 +443,7 @@ namespace blankyBot.Commands
                     .Build();
             }
 
-            if (player.IsPaused)
+            if (player.IsPaused || player.Track is null)
             {
                 return embed.WithDescription($"Error : I'm not playing any tracks.")
                     .WithColor(Color.Red)
@@ -419,27 +473,27 @@ namespace blankyBot.Commands
                     .Build();
             }
 
-            if (player.Queue.Count == 0)
+            if (_queue.Count == 0)
             {
                 return embed.WithDescription($"Error : Queue is empty.")
                     .WithColor(Color.Red)
                     .Build();
             }
-            player.Queue.Shuffle();
+            _queue.Shuffle();
 
             string result = "";
-            for (int trackNumber = 0 ; trackNumber < player.Queue.Count; trackNumber++)
+            for (int trackNumber = 0 ; trackNumber < _queue.Count; trackNumber++)
             {
-                if (trackNumber >= player.Queue.Count)
+                if (trackNumber >= _queue.Count)
                 {
                     break;
                 }
-                string title = player.Queue.ElementAt(trackNumber).Title;
+                string title = _queue.ElementAt(trackNumber).Title;
                 if (title.Length > 80)
                 {
                     title = $"{title[..77]}...";
                 }
-                result += $"\n{trackNumber + 1} : [{title}]({player.Queue.ElementAt(trackNumber).Url}) [{player.Queue.ElementAt(trackNumber).Duration:mm\\:ss}]";
+                result += $"\n{trackNumber + 1} : [{title}]({_queue.ElementAt(trackNumber).Url}) [{_queue.ElementAt(trackNumber).Duration:mm\\:ss}]";
             }
             return embed.WithAuthor(user)
                 .WithTitle($"Queue shuffled! ")
@@ -457,7 +511,7 @@ namespace blankyBot.Commands
                     .WithAuthor(user)
                     .Build();
             }
-            if (player.Queue.Count == 0)
+            if (_queue.Count == 0)
             {
                 return embed.WithDescription($"Error : Queue is empty.")
                     .WithColor(Color.Red)
@@ -466,16 +520,16 @@ namespace blankyBot.Commands
             string result = "";
             for (int trackNumber = 0 + ( ( pageNumber - 1 ) * 10 ); trackNumber < 10 + ( ( pageNumber - 1 ) * 10); trackNumber++)
             {
-                if ( trackNumber >= player.Queue.Count )
+                if ( trackNumber >= _queue.Count )
                 {
                     break;
                 }
-                string title = player.Queue.ElementAt(trackNumber).Title;
+                string title = _queue.ElementAt(trackNumber).Title;
                 if (title.Length > 60)
                 {
                     title = $"{title[..57]}...";
                 }
-                result += $"\n{ trackNumber + 1 } : [{ title }]({ player.Queue.ElementAt(trackNumber).Url }) [{player.Queue.ElementAt(trackNumber).Duration:mm\\:ss}]";
+                result += $"\n{ trackNumber + 1 } : [{ title }]({ _queue.ElementAt(trackNumber).Url }) [{_queue.ElementAt(trackNumber).Duration:mm\\:ss}]";
             }
             if ( result == "" )
             {
@@ -483,15 +537,15 @@ namespace blankyBot.Commands
                     .WithColor(Color.Red)
                     .Build();
             }
-            int PageTotal = player.Queue.Count / 10;
-            if(player.Queue.Count % 10 != 0)
+            int PageTotal = _queue.Count / 10;
+            if(_queue.Count % 10 != 0)
             {
                 PageTotal++;
             }
             return embed.WithAuthor(user)
                 .WithTitle($"List of queued music :")
                 .WithDescription(result)
-                .WithFooter($"Page { pageNumber }/{ PageTotal }. { player.Queue.Count } tracks enqueued")
+                .WithFooter($"Page { pageNumber }/{ PageTotal }. { _queue.Count } tracks enqueued")
                 .Build();
         }
 
