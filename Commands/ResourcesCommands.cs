@@ -331,7 +331,7 @@ namespace blankyBot.Commands
 
             try
             {
-                await player.ResumeAsync(_lavaNode);
+                //await player.ResumeAsync(_lavaNode);
                 return embed.WithDescription($"Resume: {player.Track.Title}")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -367,7 +367,7 @@ namespace blankyBot.Commands
 
             try
             {
-                await player.StopAsync(_lavaNode);
+                //await player.StopAsync(_lavaNode);
                 return embed.WithDescription($"Paused: {player.Track.Title}")
                     .WithColor(Color.Purple)
                     .WithAuthor(user)
@@ -416,7 +416,7 @@ namespace blankyBot.Commands
                 } 
                 else
                 {
-                    await player.StopAsync(_lavaNode);
+                    //await player.StopAsync(_lavaNode);
                     return embed.WithDescription($"Skipped: {skippedTrack}")
                         .WithColor(Color.Purple)
                         .WithAuthor(user)

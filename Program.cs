@@ -46,7 +46,9 @@ namespace blankyBot
         {
             Console.WriteLine("Blanky Bot bot start");
             client = new DiscordSocketClient();
-            var config = new DiscordSocketConfig { GatewayIntents = GatewayIntents.All };
+            var config = new DiscordSocketConfig { GatewayIntents = GatewayIntents.All,
+                UseInteractionSnowflakeDate = false
+            };
             client = new DiscordSocketClient(config);
             _commands = new CommandService();
             _services = new ServiceCollection()
@@ -90,13 +92,14 @@ namespace blankyBot
             }
             resourcesCommands = new ResourcesCommands(_lavaNode, queue);
             await client.SetStatusAsync(UserStatus.Online);
-            await client.SetGameAsync("Blanky Bot 1.0");
+            await client.SetGameAsync("Blanky Bot 2.0");
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
             if (!_lavaNode.IsConnected)
             {
                 await _lavaNode.ConnectAsync();
                 Console.WriteLine($"Node connection : {_lavaNode.IsConnected}");
             }
+            _lavaNode.OnTrackEnd += Autoplay;
             SlashCommandBuilder helpCommand = new SlashCommandBuilder()
                 .WithName("help")
                 .WithDescription("Displays all the available commands of the bot.");
@@ -252,7 +255,7 @@ namespace blankyBot
         // Command init
         public void RegisterCommandsAsync()
         {
-            if (client is null || _commands is null || _services is null || _lavaNode is null)
+            if (client is null || _commands is null || _services is null)
             {
                 Console.WriteLine("Major error, the bot will not load due to a null client, command or services");
                 return;
@@ -269,7 +272,6 @@ namespace blankyBot
             client.MessageReceived += messageHandler.HandleCommandAsync;
             client.MessageDeleted += deleteHandler.HandleDeleteAsync;
             client.MessageUpdated += editedHandler.HandleEditAsync;
-            _lavaNode.OnTrackEnd += Autoplay;
             FireGator.Start();
             FireGator.OnThursday += firegatorHandler.HandleFiregatorAsync;
         }

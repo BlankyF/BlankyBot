@@ -23,6 +23,11 @@ namespace blankyBot
         private readonly CommandService _commands;
         private readonly IServiceProvider _services;
 
+        private readonly ulong altheaReadChannel = 1543370962727211141;
+
+
+        private readonly ulong altheaSpeakChannel = 1543371692137644132;
+
         /*----------------------------*/
         /*  MESSAGE CONTENT HANDLER   */
         /*----------------------------*/
@@ -35,9 +40,10 @@ namespace blankyBot
 
             // if the message is from bot then ignore
             if (message is null || message.Author.IsBot) return;
-            // if the message is in the art channel 
-            if (message.Channel.Id == galleryId) await CheckImageArtChannelAsync(message);
-            if (message.Channel.Id == emoteSuggestionId|| message.Channel.Id == serverIconId) await CheckReactionAsync(message);
+
+            // althea speaks
+            if (context.Channel.Id == altheaReadChannel) await AltheaCommand(altheaSpeakChannel, context);
+
             // command prompt
             int argPos = 0;
             if (message.HasStringPrefix(prefix, ref argPos))
@@ -46,91 +52,48 @@ namespace blankyBot
                 if (!result.IsSuccess) Console.WriteLine(result.ErrorReason);
             }
         }
-        private static async Task CheckReactionAsync(SocketUserMessage message)
-        {
-            Emoji thumbup = new("✅");
-            Emoji thumbdown = new ("❌");
-            await message.AddReactionAsync(thumbup);
-            await message.AddReactionAsync(thumbdown);
-        }
-        private async Task CheckImageArtChannelAsync(SocketUserMessage message)
-        {
-            //init channels
-            ITextChannel galleryChannel = (ITextChannel)_client.GetChannel(galleryId);
-            ITextChannel galleryTalkChannel = (ITextChannel)_client.GetChannel(galleryTalkId);
 
-            // Delete if message is empty
+        private async Task AltheaCommand(ulong speakChannelId, SocketCommandContext context)
+        {
+            ISocketMessageChannel speakChannel = (ISocketMessageChannel)await _client.GetChannelAsync(speakChannelId);
+            string messageContent = context.Message.Content;
+            List<string> urls = [];
 
-            List<string> urlList = GetAllUrlFromString(message.Content);
-            if ((message.Attachments.Count == 0) && (urlList.Count == 0))
+            // get urls from text and remove them from the 
+            MatchCollection ms = Regex.Matches(messageContent, @"(www.+|http.+)([\s]|$)");
+            foreach (Match match in ms)
             {
-                Console.WriteLine($"deleted {message.Attachments.Count} attachment and {urlList.Count} URLs");
-                Embed embedMessage = PostEmbedText(message.Author.Username, message.Author.GetAvatarUrl(), "Deleted message content:", message.Content);
-                await galleryTalkChannel.SendMessageAsync(
-                $"{message.Author.Username} No posting in the gallery <#{message.Channel.Id}>"
-                , embed: embedMessage
-                );
-                await galleryChannel.DeleteMessageAsync(message);
-                return;
+                messageContent = messageContent.Replace(match.Value,"");
             }
 
-            // Post if message has image
-            string[] extensionList = { ".png", ".jpeg", ".gif", ".jpg" };
-            Console.WriteLine($"{message.Attachments.Count} attachment and {urlList.Count} URLs");
-            // if the message has no attachments and no url
-            if ((message.Attachments.Count == 0 && urlList.Count == 0)) return;
-            // post every attachment as an embed
-            foreach (var attachment in message.Attachments)
+            // get all the embeds pictures
+            foreach (Embed? embed in context.Message.Embeds)
             {
-                if (attachment.IsSpoiler())
+                if (embed is not null)
                 {
-                    string messageContent = $"{message.Author.Username} posted: {Regex.Replace(message.Content, @"http[^\s]+", "")}\nUrl link: ||{attachment.Url} ||\nDiscord link: https://discord.com/channels/{serverId}/{galleryId}/{message.Id}";
-                    await MessageChannel(_client, messageContent, galleryTalkId);
-                }
-                else
-                {
-                    bool isEmbedable = false;
-                    foreach (var extensionItem in extensionList)
-                        if (isEmbedable = attachment.Url.EndsWith(extensionItem)) break;
-                    // if the attachment is an image
-                    if (isEmbedable)
-                        await galleryTalkChannel.SendMessageAsync(embed:
-                        PostEmbedImage(message.Author.Username, message.Author.Id, Regex.Replace(message.Content, @"http[^\s]+", ""), message.Author.GetAvatarUrl(), attachment.Url, message.Id));
-                    // if it's something else (like a video)
-                    else
-                    {
-                        string messageContent = $"{message.Author.Username} posted: {Regex.Replace(message.Content, @"http[^\s]+", "")}\nUrl link: {attachment.Url}\nDiscord link: https://discord.com/channels/{serverId}/{galleryId}/{message.Id}";
-                        await MessageChannel(_client, messageContent, galleryTalkId);
-                    }
+                    urls.Add(embed.Url);
                 }
             }
-            // post every attachment as an embed
-            foreach (var url in urlList)
-            {
-                if (message.Content.Contains("||"))
-                {
-                    string messageString = message.Content.Replace("|", "");
-                    string messageContent = $"{message.Author.Username} posted: {Regex.Replace(messageString, @"http[^\s]+", "")}\nUrl link: ||{url} ||\nDiscord link: https://discord.com/channels/{serverId}/{galleryId}/{message.Id}";
-                    await MessageChannel(_client, messageContent, galleryTalkId);
-                }
-                else
-                {
 
-                    bool isEmbedable = false;
-                    foreach (var extensionItem in extensionList)
-                        if (isEmbedable = url.EndsWith(extensionItem)) break;
-                    // if the attachment is an image
-                    if (isEmbedable)
-                        await galleryTalkChannel.SendMessageAsync(embed:
-                            PostEmbedImage(message.Author.Username, message.Author.Id, Regex.Replace(message.Content, @"http[^\s]+", ""), message.Author.GetAvatarUrl(), url, message.Id));
-                    // if it's something else (like a video)
-                    else
-                    {
-                        string messageContent = $"{message.Author.Username} posted: {Regex.Replace(message.Content, @"http[^\s]+", "")}\nUrl link: {url}\nDiscord link: https://discord.com/channels/{serverId}/{galleryId}/{message.Id}";
-                        await MessageChannel(_client, messageContent, galleryTalkId);
-                    }
+            foreach (Attachment? attachment in context.Message.Attachments)
+            {
+                if (attachment is not null)
+                {
+                    urls.Add(attachment.Url);
                 }
-            };
+            }
+
+            // makes the non url text sss
+            messageContent = messageContent.Replace("s", "sss");
+            if (messageContent is not null and not "")
+            {
+                await speakChannel.SendMessageAsync(messageContent);
+            }
+            // add the pictures after
+            foreach (string url in urls)
+            {
+                await speakChannel.SendMessageAsync(url);
+            }
         }
     }
 }
